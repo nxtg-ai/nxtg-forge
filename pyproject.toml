@@ -1,0 +1,170 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nxtg-forge"
+version = "1.0.0"
+description = "Self-Deploying AI Development Infrastructure"
+# readme = "README.md"  # Temporarily disabled due to encoding issue
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "NXTG-Forge Contributors"}
+]
+keywords = ["ai", "development", "infrastructure", "claude", "mcp", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "questionary>=2.0.0",
+    "jinja2>=3.1.0",
+    "pyyaml>=6.0.0",
+    "toml>=0.10.0",
+    "astroid>=3.0.0",
+    "radon>=6.0.0",
+    "coverage>=7.0.0",
+    "safety>=3.0.0",
+    "bandit>=1.7.0",
+    "gitpython>=3.1.0",
+    "requests>=2.31.0",
+    "python-dateutil>=2.8.0",
+    "jsonschema>=4.20.0",
+    "tabulate>=0.9.0",
+    "colorama>=0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[project.scripts]
+nxtg-forge = "forge.cli:main"
+forge = "forge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/nxtg-forge"
+Documentation = "https://github.com/your-org/nxtg-forge#readme"
+Repository = "https://github.com/your-org/nxtg-forge.git"
+"Bug Tracker" = "https://github.com/your-org/nxtg-forge/issues"
+
+[tool.setuptools]
+packages = ["forge", "forge.agents"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = [
+    "B101", # assert used
+    "B110", # try/except/pass
+    "B112", # try/except/continue
+    "B404", # subprocess import
+    "B603", # subprocess without shell=True
+    "B607", # partial executable path
+    "B701", # jinja2 autoescape false
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C",   # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+
+[[tool.mypy.overrides]]
+module = "questionary.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "radon.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --cov=forge --cov-report=term-missing --cov-report=html"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["forge"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

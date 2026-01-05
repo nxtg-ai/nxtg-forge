@@ -1,0 +1,44 @@
+{
+  "name": "nxtg-forge",
+  "version": "1.0.0",
+  "description": "Self-Deploying AI Development Infrastructure",
+  "main": "index.js",
+  "bin": {
+    "nxtg-forge": "./forge/cli.py",
+    "forge": "./forge/cli.py"
+  },
+  "scripts": {
+    "mcp-detect": "node .mcp/auto-detect.js",
+    "test": "python -m pytest tests/",
+    "lint": "ruff check forge/",
+    "format": "black forge/",
+    "typecheck": "mypy forge/"
+  },
+  "keywords": [
+    "ai",
+    "development",
+    "infrastructure",
+    "claude",
+    "mcp",
+    "automation",
+    "devops"
+  ],
+  "author": "NXTG-Forge Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/nxtg-forge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/nxtg-forge/issues"
+  },
+  "homepage": "https://github.com/your-org/nxtg-forge#readme",
+  "engines": {
+    "node": ">=16.0.0",
+    "python": ">=3.9.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "prettier": "^3.1.0"
+  }
+}

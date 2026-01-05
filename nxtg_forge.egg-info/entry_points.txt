@@ -1,0 +1,3 @@
+[console_scripts]
+forge = forge.cli:main
+nxtg-forge = forge.cli:main
