@@ -5,11 +5,14 @@
 ```bash
 # Clone and install
 git clone https://github.com/nxtg-ai/nxtg-forge.git
-cd nxtg-forge/v3
+cd nxtg-forge
 pip install -e .
 
-# Use in your project
+# Initialize in your project
 cd your-project
+forge init
+
+# Use Claude Code with forge
 claude
 ```
 

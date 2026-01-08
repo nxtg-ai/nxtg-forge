@@ -5,7 +5,7 @@
 ```bash
 # Install from source (PyPI coming soon)
 git clone https://github.com/nxtg-ai/nxtg-forge.git
-cd nxtg-forge/v3
+cd nxtg-forge
 pip install -e .
 
 # Go to your project and initialize
@@ -101,7 +101,7 @@ That's it. Now `claude` in your project directory and use slash commands like `/
 ```bash
 # Clone the repository
 git clone https://github.com/nxtg-ai/nxtg-forge.git
-cd nxtg-forge/v3
+cd nxtg-forge
 
 # Install in editable mode
 pip install -e .

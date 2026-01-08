@@ -21,7 +21,7 @@ Based on user feedback, we completely redesigned the NXTG-Forge UX to be **truly
 ### Original Design (What We Had)
 
 ```bash
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 cd my-project
 claude
 
@@ -47,7 +47,7 @@ claude
 ### New Design (What We Built)
 
 ```bash
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 cd my-project
 claude
 
@@ -196,7 +196,7 @@ Run `/init` and answer:
 
 Make Claude Smarter.
 
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 
 That's it.
 
@@ -210,7 +210,7 @@ Example:
 
 ## Installation
 
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 ```
 
 **Focus**: Show what users GET, not how it WORKS.
@@ -292,7 +292,7 @@ config = load_or_create_config()  # Creates .claude/forge/config.yml on first us
 ```bash
 # User hears about nxtg-forge
 # Installs it
-$ git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+$ git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 
 # Uses Claude normally
 $ cd my-project
@@ -427,7 +427,7 @@ def migrate_if_needed():
 
 ```markdown
 # Make Claude Smarter
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 
 Example:
   You: "Add authentication"
@@ -581,7 +581,7 @@ Example:
 
 ```bash
 # User installs
-$ git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+$ git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 
 # User uses Claude normally
 $ claude

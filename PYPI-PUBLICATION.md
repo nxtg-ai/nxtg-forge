@@ -38,7 +38,7 @@ The package is **fully configured and ready** for PyPI publication, but has **ne
 ```bash
 # Clone the repository
 git clone https://github.com/nxtg-ai/nxtg-forge.git
-cd nxtg-forge/v3
+cd nxtg-forge
 
 # Install in editable mode from source
 pip install -e .

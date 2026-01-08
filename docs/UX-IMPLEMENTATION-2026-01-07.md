@@ -697,7 +697,7 @@ rm -rf .nxtg-forge/
 **Installation**:
 
 ```bash
-git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge/v3 && pip install -e .
+git clone https://github.com/nxtg-ai/nxtg-forge.git && cd nxtg-forge && pip install -e .
 cd your-project
 claude
 ```
