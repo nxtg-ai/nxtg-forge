@@ -15,6 +15,8 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
+from forge import __version__
+
 from .config import ForgeConfig, get_forge_config, requires_complex_handling
 
 
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level flag set on first import
 _FORGE_AVAILABLE = True
-_FORGE_VERSION = "1.0.0"
+_FORGE_VERSION = __version__
 
 
 def is_forge_available() -> bool:

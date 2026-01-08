@@ -9,15 +9,14 @@ import json
 import sys
 from pathlib import Path
 
+from forge import __version__ as FORGE_VERSION
+
 from .file_generator import FileGenerator
 from .gap_analyzer import GapAnalyzer
 from .init_command import init_project
 from .mcp_detector import MCPDetector
 from .spec_generator import SpecGenerator
 from .state_manager import StateManager
-
-
-FORGE_VERSION = "1.0.0"
 
 
 class ForgeCLI:

@@ -4,7 +4,14 @@ A comprehensive system for building, deploying, and maintaining software project
 with Claude Code integration.
 """
 
-__version__ = "1.0.0"
+# Import version from pyproject.toml at build time
+try:
+    from importlib.metadata import version
+    __version__ = version("nxtg-forge")
+except Exception:
+    # Fallback for development installations
+    __version__ = "0.0.0-dev"
+
 __author__ = "NXTG-Forge Contributors"
 
 from .config import ForgeConfig, get_forge_config, requires_complex_handling

@@ -37,7 +37,16 @@ class ForgeConfig:
 
     # Protocol version from AUTO-SETUP.md
     PROTOCOL_VERSION = "1.0"
-    FORGE_VERSION = "1.0.0"
+
+    # Forge version - imported from package metadata
+    @property
+    def FORGE_VERSION(self) -> str:
+        """Get Forge version from package metadata"""
+        try:
+            from forge import __version__
+            return __version__
+        except Exception:
+            return "0.0.0-dev"
 
     def __init__(self, project_root: Optional[Path] = None):
         """Initialize config manager

@@ -7,14 +7,12 @@
     "last_updated": "",
     "forge_version": "1.0.0"
   },
-
   "spec": {
     "status": "pending",
     "file": null,
     "hash": null,
     "last_modified": null
   },
-
   "architecture": {
     "pattern": "",
     "layers": [],
@@ -36,19 +34,24 @@
       "version": ""
     }
   },
-
   "development": {
     "current_phase": "planning",
     "phases_completed": [],
-    "phases_remaining": ["planning", "architecture", "setup", "implementation", "testing", "documentation", "deployment"],
-
+    "phases_remaining": [
+      "planning",
+      "architecture",
+      "setup",
+      "implementation",
+      "testing",
+      "documentation",
+      "deployment"
+    ],
     "features": {
       "completed": [],
       "in_progress": [],
       "planned": []
     }
   },
-
   "agents": {
     "active": [],
     "available": [
@@ -61,12 +64,10 @@
     ],
     "history": []
   },
-
   "mcp_servers": {
     "configured": [],
     "recommended": []
   },
-
   "quality": {
     "tests": {
       "unit": {
@@ -99,9 +100,7 @@
       "last_scan": null
     }
   },
-
   "checkpoints": [],
-
   "last_session": {
     "id": null,
     "started": null,
