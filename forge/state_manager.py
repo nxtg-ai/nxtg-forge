@@ -7,20 +7,35 @@ Handles all state operations:
 - Checkpoint creation/restore
 - Recovery from interruption
 - Zero-context continuation
+
+Refactored with Result types for explicit error handling.
 """
 
 import json
+import logging
 import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .config import ForgeConfig
+from .result import Err, Ok, Result, StateError
+
+
+logger = logging.getLogger(__name__)
 
 
 class StateManager:
     def __init__(self, project_root: str = "."):
+        """Initialize StateManager.
+
+        Args:
+            project_root: Root directory of the project
+
+        Note: Constructor doesn't raise exceptions. Call load() explicitly
+              to get Result type for error handling.
+        """
         self.project_root = Path(project_root)
 
         # Use ForgeConfig for path management
@@ -31,26 +46,60 @@ class StateManager:
         self.state_file = self.forge_config.state_file
         self.checkpoints_dir = self.forge_config.checkpoints_dir
 
-        self.state = self.load()
+        # State is loaded lazily via load()
+        self.state: dict[str, Any] = {}
 
-    def load(self) -> dict[str, Any]:
-        """Load current state"""
+    def load(self) -> Result[dict[str, Any], StateError]:
+        """Load current state.
+
+        Returns:
+            Result containing state dict or StateError
+        """
         if not self.state_file.exists():
-            return self.create_initial_state()
+            self.state = self.create_initial_state()
+            return Ok(self.state)
 
-        with open(self.state_file) as f:
-            state_data: dict[str, Any] = json.load(f)
-            return state_data
+        try:
+            with open(self.state_file, encoding="utf-8") as f:
+                state_data: dict[str, Any] = json.load(f)
+                self.state = state_data
+                logger.info(f"Loaded state from {self.state_file}")
+                return Ok(state_data)
+        except json.JSONDecodeError as e:
+            error = StateError.invalid_json(str(e))
+            logger.error(f"Failed to load state: {error}")
+            return Err(error)
+        except Exception as e:
+            error = StateError(f"Failed to load state: {e}")
+            logger.error(f"Failed to load state: {error}")
+            return Err(error)
 
-    def save(self):
-        """Save current state"""
-        self.state["project"]["last_updated"] = datetime.utcnow().isoformat() + "Z"
+    def save(self) -> Result[None, StateError]:
+        """Save current state.
 
-        with open(self.state_file, "w") as f:
-            json.dump(self.state, f, indent=2)
+        Returns:
+            Result indicating success or StateError
+        """
+        try:
+            self.state["project"]["last_updated"] = datetime.utcnow().isoformat() + "Z"
 
-        # Auto-sync state hook
-        self.run_hook("state-sync.sh")
+            with open(self.state_file, "w", encoding="utf-8") as f:
+                json.dump(self.state, f, indent=2)
+
+            logger.info(f"Saved state to {self.state_file}")
+
+            # Auto-sync state hook
+            hook_result = self.run_hook("state-sync.sh")
+            if hook_result.is_error():
+                logger.warning(f"State sync hook failed: {hook_result.error}")
+                # Don't fail save if hook fails
+
+            return Ok(None)
+
+        except Exception as e:
+            error = StateError(f"Failed to save state: {e}")
+            logger.error(str(error))
+            return Err(error)
 
     def create_initial_state(self) -> dict[str, Any]:
         """Create initial state for new project"""
@@ -107,15 +156,77 @@ class StateManager:
             "last_session": None,
         }
 
-    def checkpoint(self, description: str) -> str:
-        """Create a checkpoint of current state"""
-        checkpoint_id = f"cp-{len(self.state['checkpoints']) + 1:03d}"
-        timestamp = datetime.utcnow().isoformat() + "Z"
+    def checkpoint(self, description: str) -> Result[str, StateError]:
+        """Create a checkpoint of current state.
 
-        # Get git commit if in git repo
-        git_commit = None
+        Args:
+            description: Description of the checkpoint
+
+        Returns:
+            Result containing checkpoint ID or StateError
+        """
         try:
-            git_commit = (
+            checkpoint_id = f"cp-{len(self.state['checkpoints']) + 1:03d}"
+            timestamp = datetime.utcnow().isoformat() + "Z"
+
+            # Get git commit if in git repo
+            git_commit = self._get_git_commit()
+
+            checkpoint_file = self.checkpoints_dir / f"{checkpoint_id}.json"
+
+            checkpoint_data = {
+                "id": checkpoint_id,
+                "timestamp": timestamp,
+                "description": description,
+                "state": self.state.copy(),
+                "git_commit": git_commit,
+            }
+
+            with open(checkpoint_file, "w", encoding="utf-8") as f:
+                json.dump(checkpoint_data, f, indent=2)
+
+            # Add to checkpoints list
+            self.state["checkpoints"].append(
+                {
+                    "id": checkpoint_id,
+                    "timestamp": timestamp,
+                    "description": description,
+                    "file": str(checkpoint_file.relative_to(self.project_root)),
+                    "git_commit": git_commit,
+                },
+            )
+
+            # Save state
+            save_result = self.save()
+            if save_result.is_error():
+                return Err(StateError(f"Failed to save after checkpoint: {save_result.error}"))
+
+            # Create symlink to latest
+            try:
+                latest_link = self.checkpoints_dir / "latest.json"
+                if latest_link.exists():
+                    latest_link.unlink()
+                latest_link.symlink_to(checkpoint_file.name)
+            except Exception as e:
+                logger.warning(f"Failed to create latest symlink: {e}")
+                # Don't fail checkpoint if symlink fails
+
+            logger.info(f"Created checkpoint {checkpoint_id}: {description}")
+            return Ok(checkpoint_id)
+
+        except Exception as e:
+            error = StateError(f"Failed to create checkpoint: {e}")
+            logger.error(str(error))
+            return Err(error)
+
+    def _get_git_commit(self) -> str | None:
+        """Get current git commit hash.
+
+        Returns:
+            Commit hash or None if not in git repo
+        """
+        try:
+            commit = (
                 subprocess.check_output(
                     ["git", "rev-parse", "HEAD"],
                     cwd=self.project_root,
@@ -124,93 +235,143 @@ class StateManager:
                 .decode()
                 .strip()
             )
-        except:
-            pass
+            return commit
+        except Exception:
+            return None
 
-        checkpoint_file = self.checkpoints_dir / f"{checkpoint_id}.json"
+    def restore(
+        self,
+        checkpoint_id: str | None = None,
+        restore_git: bool = False,
+    ) -> Result[dict, StateError]:
+        """Restore from checkpoint.
 
-        checkpoint_data = {
-            "id": checkpoint_id,
-            "timestamp": timestamp,
-            "description": description,
-            "state": self.state.copy(),
-            "git_commit": git_commit,
-        }
+        Args:
+            checkpoint_id: ID of checkpoint to restore, or None for latest
+            restore_git: Whether to restore git state (non-interactive)
 
-        with open(checkpoint_file, "w") as f:
-            json.dump(checkpoint_data, f, indent=2)
+        Returns:
+            Result containing checkpoint data or StateError
+        """
+        try:
+            if checkpoint_id is None:
+                # Restore from latest
+                if not self.state["checkpoints"]:
+                    return Err(StateError("No checkpoints available"))
+                checkpoint_id = self.state["checkpoints"][-1]["id"]
 
-        # Add to checkpoints list
-        self.state["checkpoints"].append(
-            {
-                "id": checkpoint_id,
-                "timestamp": timestamp,
-                "description": description,
-                "file": str(checkpoint_file.relative_to(self.project_root)),
-                "git_commit": git_commit,
-            },
-        )
+            checkpoint_file = self.checkpoints_dir / f"{checkpoint_id}.json"
 
-        self.save()
+            if not checkpoint_file.exists():
+                return Err(StateError.missing_file(f"Checkpoint {checkpoint_id} not found"))
 
-        # Create symlink to latest
-        latest_link = self.checkpoints_dir / "latest.json"
-        if latest_link.exists():
-            latest_link.unlink()
-        latest_link.symlink_to(checkpoint_file.name)
+            with open(checkpoint_file, encoding="utf-8") as f:
+                checkpoint_data = json.load(f)
 
-        return checkpoint_id
+            # Restore state
+            self.state = checkpoint_data["state"]
 
-    def restore(self, checkpoint_id: Optional[str] = None):
-        """Restore from checkpoint"""
-        if checkpoint_id is None:
-            # Restore from latest
-            checkpoint_id = self.state["checkpoints"][-1]["id"]
+            save_result = self.save()
+            if save_result.is_error():
+                return Err(StateError(f"Failed to save after restore: {save_result.error}"))
 
-        checkpoint_file = self.checkpoints_dir / f"{checkpoint_id}.json"
+            logger.info(f"Restored from checkpoint: {checkpoint_id}")
+            logger.info(f"  Description: {checkpoint_data['description']}")
+            logger.info(f"  Timestamp: {checkpoint_data['timestamp']}")
 
-        if not checkpoint_file.exists():
-            raise ValueError(f"Checkpoint {checkpoint_id} not found")
+            # Optionally restore git state
+            if restore_git and checkpoint_data.get("git_commit"):
+                git_result = self._restore_git_state(checkpoint_data["git_commit"])
+                if git_result.is_error():
+                    logger.warning(f"Failed to restore git state: {git_result.error}")
+                    # Don't fail restore if git fails
 
-        with open(checkpoint_file) as f:
-            checkpoint_data = json.load(f)
+            return Ok(checkpoint_data)
 
-        # Restore state
-        self.state = checkpoint_data["state"]
-        self.save()
+        except Exception as e:
+            error = StateError(f"Failed to restore checkpoint: {e}")
+            logger.error(str(error))
+            return Err(error)
 
-        print(f"✓ Restored from checkpoint: {checkpoint_id}")
-        print(f"  Description: {checkpoint_data['description']}")
-        print(f"  Timestamp: {checkpoint_data['timestamp']}")
+    def _restore_git_state(self, commit_hash: str) -> Result[None, str]:
+        """Restore git state to specific commit.
 
-        if checkpoint_data.get("git_commit"):
-            print(f"  Git commit: {checkpoint_data['git_commit'][:8]}")
+        Args:
+            commit_hash: Git commit hash to restore
 
-            # Ask if should restore git state
-            response = input("\nRestore git state? (y/n): ")
-            if response.lower() == "y":
-                subprocess.run(
-                    ["git", "checkout", checkpoint_data["git_commit"]],
-                    cwd=self.project_root,
-                    check=False,
-                )
+        Returns:
+            Result indicating success or error message
+        """
+        try:
+            result = subprocess.run(
+                ["git", "checkout", commit_hash],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-    def update_feature(self, feature_id: str, updates: dict[str, Any]):
-        """Update feature status"""
+            if result.returncode != 0:
+                return Err(f"Git checkout failed: {result.stderr}")
+
+            logger.info(f"Restored git state to commit: {commit_hash[:8]}")
+            return Ok(None)
+
+        except Exception as e:
+            return Err(f"Failed to restore git state: {e}")
+
+    def update_feature(self, feature_id: str, updates: dict[str, Any]) -> Result[None, StateError]:
+        """Update feature status.
+
+        Args:
+            feature_id: Feature identifier
+            updates: Dictionary of updates to apply
+
+        Returns:
+            Result indicating success or StateError
+        """
         # Find feature in state
         for status in ["completed", "in_progress", "planned"]:
             features = self.state["development"]["features"][status]
             for i, feature in enumerate(features):
                 if feature["id"] == feature_id:
                     features[i].update(updates)
-                    self.save()
-                    return
 
-        raise ValueError(f"Feature {feature_id} not found")
+                    save_result = self.save()
+                    if save_result.is_error():
+                        return Err(
+                            StateError(f"Failed to save after feature update: {save_result.error}"),
+                        )
 
-    def move_feature(self, feature_id: str, from_status: str, to_status: str):
-        """Move feature between statuses"""
+                    logger.info(f"Updated feature {feature_id}")
+                    return Ok(None)
+
+        return Err(StateError(f"Feature {feature_id} not found"))
+
+    def move_feature(
+        self,
+        feature_id: str,
+        from_status: str,
+        to_status: str,
+    ) -> Result[None, StateError]:
+        """Move feature between statuses.
+
+        Args:
+            feature_id: Feature identifier
+            from_status: Source status (completed, in_progress, planned)
+            to_status: Destination status
+
+        Returns:
+            Result indicating success or StateError
+        """
         features = self.state["development"]["features"]
+
+        # Validate status values
+        valid_statuses = ["completed", "in_progress", "planned"]
+        if from_status not in valid_statuses:
+            return Err(StateError(f"Invalid from_status: {from_status}"))
+        if to_status not in valid_statuses:
+            return Err(StateError(f"Invalid to_status: {to_status}"))
 
         # Find and remove from source
         feature = None
@@ -220,14 +381,36 @@ class StateManager:
                 break
 
         if not feature:
-            raise ValueError(f"Feature {feature_id} not found in {from_status}")
+            return Err(StateError(f"Feature {feature_id} not found in {from_status}"))
 
         # Add to destination
         features[to_status].append(feature)
-        self.save()
 
-    def record_session(self, session_id: str, agent: str, task: str, status: str = "active"):
-        """Record current session for recovery"""
+        save_result = self.save()
+        if save_result.is_error():
+            return Err(StateError(f"Failed to save after feature move: {save_result.error}"))
+
+        logger.info(f"Moved feature {feature_id} from {from_status} to {to_status}")
+        return Ok(None)
+
+    def record_session(
+        self,
+        session_id: str,
+        agent: str,
+        task: str,
+        status: str = "active",
+    ) -> Result[None, StateError]:
+        """Record current session for recovery.
+
+        Args:
+            session_id: Unique session identifier
+            agent: Agent name
+            task: Task description
+            status: Session status (default: active)
+
+        Returns:
+            Result indicating success or StateError
+        """
         self.state["last_session"] = {
             "id": session_id,
             "started": datetime.utcnow().isoformat() + "Z",
@@ -235,14 +418,24 @@ class StateManager:
             "task": task,
             "status": status,
         }
-        self.save()
 
-    def get_recovery_info(self) -> Optional[dict[str, Any]]:
-        """Get information for zero-context recovery"""
+        save_result = self.save()
+        if save_result.is_error():
+            return Err(StateError(f"Failed to save session: {save_result.error}"))
+
+        logger.info(f"Recorded session {session_id}: {agent} - {task}")
+        return Ok(None)
+
+    def get_recovery_info(self) -> Result[dict[str, Any], StateError]:
+        """Get information for zero-context recovery.
+
+        Returns:
+            Result containing recovery info or StateError if no recovery needed
+        """
         last_session = self.state.get("last_session")
 
         if not last_session or last_session["status"] != "interrupted":
-            return None
+            return Err(StateError("No recovery needed - no interrupted session"))
 
         # Get last checkpoint
         last_checkpoint = None
@@ -252,7 +445,7 @@ class StateManager:
         # Get in-progress features
         in_progress = self.state["development"]["features"]["in_progress"]
 
-        return {
+        recovery_info = {
             "session": last_session,
             "checkpoint": last_checkpoint,
             "in_progress_features": in_progress,
@@ -263,11 +456,42 @@ class StateManager:
             ],
         }
 
-    def run_hook(self, hook_name: str):
-        """Run a lifecycle hook"""
+        return Ok(recovery_info)
+
+    def run_hook(self, hook_name: str) -> Result[None, str]:
+        """Run a lifecycle hook.
+
+        Args:
+            hook_name: Name of hook script to run
+
+        Returns:
+            Result indicating success or error message
+        """
         hook_path = self.forge_config.claude_dir / "hooks" / hook_name
-        if hook_path.exists() and os.access(hook_path, os.X_OK):
-            subprocess.run([str(hook_path)], cwd=self.project_root, check=False)
+
+        if not hook_path.exists():
+            return Ok(None)  # No hook is not an error
+
+        if not os.access(hook_path, os.X_OK):
+            return Err(f"Hook {hook_name} is not executable")
+
+        try:
+            result = subprocess.run(
+                [str(hook_path)],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                return Err(f"Hook {hook_name} failed: {result.stderr}")
+
+            logger.info(f"Hook {hook_name} executed successfully")
+            return Ok(None)
+
+        except Exception as e:
+            return Err(f"Failed to run hook {hook_name}: {e}")
 
 
 # CLI
@@ -279,23 +503,49 @@ if __name__ == "__main__":
         sys.exit(1)
 
     manager = StateManager()
+
+    # Load state
+    load_result = manager.load()
+    if load_result.is_error():
+        print(f"Error loading state: {load_result.error}")
+        sys.exit(1)
+
     command = sys.argv[1]
 
     if command == "checkpoint":
         description = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else "Manual checkpoint"
-        checkpoint_id = manager.checkpoint(description)
-        print(f"✓ Checkpoint created: {checkpoint_id}")
+        result = manager.checkpoint(description)
+
+        if result.is_ok():
+            print(f"✓ Checkpoint created: {result.value}")
+        else:
+            print(f"Error creating checkpoint: {result.error}")
+            sys.exit(1)
 
     elif command == "restore":
-        restore_id: Optional[str] = sys.argv[2] if len(sys.argv) > 2 else None
-        manager.restore(restore_id)
+        restore_id: str | None = sys.argv[2] if len(sys.argv) > 2 else None
+        restore_git = "--git" in sys.argv
+
+        result = manager.restore(restore_id, restore_git=restore_git)
+
+        if result.is_ok():
+            data = result.value
+            print(f"✓ Restored from checkpoint: {data['id']}")
+            print(f"  Description: {data['description']}")
+            print(f"  Timestamp: {data['timestamp']}")
+            if data.get("git_commit"):
+                print(f"  Git commit: {data['git_commit'][:8]}")
+        else:
+            print(f"Error restoring checkpoint: {result.error}")
+            sys.exit(1)
 
     elif command == "recovery-info":
-        info = manager.get_recovery_info()
-        if info:
-            print(json.dumps(info, indent=2))
+        result = manager.get_recovery_info()
+
+        if result.is_ok():
+            print(json.dumps(result.value, indent=2))
         else:
-            print("No recovery needed")
+            print(f"No recovery needed: {result.error}")
 
     elif command == "status":
         print(json.dumps(manager.state, indent=2))

@@ -130,33 +130,85 @@ git add .
 git commit -m "chore: initialize project with NXTG-Forge"
 ```
 
-**Step 7: Report**
+**Step 7: Install Native Agents**
+
+```bash
+# Copy agent files to .claude/agents/
+mkdir -p .claude/agents
+
+# Copy all five native agents
+cp {forge_root}/.claude/agents/agent-forge-orchestrator.md .claude/agents/
+cp {forge_root}/.claude/agents/agent-forge-detective.md .claude/agents/
+cp {forge_root}/.claude/agents/agent-forge-planner.md .claude/agents/
+cp {forge_root}/.claude/agents/agent-forge-builder.md .claude/agents/
+cp {forge_root}/.claude/agents/agent-forge-guardian.md .claude/agents/
+
+# Verify agents are accessible
+ls -la .claude/agents/agent-forge-*.md
+
+# Register agents with status detection
+forge agents register --verify
+```
+
+**Step 8: Setup Status Detection**
+
+Create session start hook to detect forge status:
+
+```bash
+# Create hook that displays NXTG-FORGE status banner
+forge hooks create session-start \
+  --template forge-status-banner \
+  --output .claude/hooks/on-session-start.sh
+
+# Hook checks:
+# 1. If .claude/agents/agent-forge-orchestrator.md exists
+# 2. If forge services initialized
+# 3. Displays appropriate banner (ENABLED or READY)
+```
+
+**Step 9: Report**
 
 ```
-✅ NXTG-Forge Initialization Complete!
+✅ NXTG-FORGE-ENABLED
 
-Project: {project_name}
-Type: {project_type}
-Stack: {tech_stack}
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║  Project: {project_name}                                 ║
+║  Type: {project_type}                                    ║
+║  Stack: {tech_stack}                                     ║
+║                                                          ║
+║  Your AI development infrastructure is active            ║
+║  and watching your back.                                 ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
 
 Generated Files:
   - 156 files created
   - 12,345 lines of code
   - 8 skills configured
-  - 6 agents available
+  - 5 native agents installed
   - 5 MCP servers connected
+
+Native Agents Available:
+  🔄 Forge Orchestrator - Command center and coordination
+  🔍 Forge Detective - Analysis and investigation
+  🎯 Forge Planner - Feature planning and design
+  ⚙️  Forge Builder - Implementation and coding
+  🛡️  Forge Guardian - Quality and security
 
 Next Steps:
   1. Review generated spec: docs/PROJECT-SPEC.md
   2. Check project state: /status
-  3. Start development: /feature "first feature name"
-  4. View available commands: /help
+  3. Enable forge: /enable-forge
+  4. Start development: /feature "first feature name"
+  5. View available commands: /help
 
 Quick Commands:
+  /enable-forge    - Activate forge command center
   /status          - Show project state
   /feature "name"  - Add new feature
+  /report          - View session activity
   /deploy          - Deploy application
-  /gap-analysis    - Analyze improvements
 ```
 
 ---
