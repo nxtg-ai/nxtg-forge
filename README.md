@@ -1,3 +1,5 @@
+# ⚠️ EARLY ALPHA - NEEDS CONTRIBUTORS -- BE CAREFUL ⚠️
+
 # NXTG-Forge
 
 **Make Claude Smarter**
